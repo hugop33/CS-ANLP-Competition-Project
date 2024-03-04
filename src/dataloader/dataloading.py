@@ -46,6 +46,26 @@ class TestDataset(Dataset):
     def __getitem__(self, idx):
         return self.data['input_ids'][idx], self.data['attention_mask'][idx], self.data['token_type_ids'][idx]
 
+
+class LabelDataset(Dataset):
+    def __init__(self, file):
+        self.file = file
+        self.tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
+        self.labels = []
+        self.tokens = []
+        with open(self.file, 'r') as f:
+            data = json.load(f)
+            for d in data:
+                self.labels.append(d)
+        self.tokens = self.tokenizer(self.labels, padding=True, truncation=True, return_tensors="pt")
+        self.len = len(self.labels)
+    
+    def __len__(self):
+        return self.len
+    
+    def __getitem__(self, idx):
+        return self.tokens['input_ids'][idx], self.tokens['attention_mask'][idx], self.tokens['token_type_ids'][idx], self.labels[idx]
+
 if __name__=="__main__":
     dataset = TrainDataset('./data/train.json')
     print(len(dataset))
@@ -54,3 +74,8 @@ if __name__=="__main__":
     dataset = TestDataset('./data/test_shuffle.txt')
     print(len(dataset))
     print(dataset[3])
+
+    dataset = LabelDataset('./data/train.json')
+    print(len(dataset))
+    print(dataset[3])
+    
