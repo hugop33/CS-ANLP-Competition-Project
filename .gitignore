@@ -170,3 +170,4 @@ cython_debug/
 *.pth
 *.npy
 *.pt
+*.zip
