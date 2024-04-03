@@ -83,7 +83,8 @@ if __name__=="__main__":
     bert_optimizer = Adam(model.bert.parameters(), lr=1e-5)
     test_preds = train(model, train_dataloader, val_dataloader, criterion, 1, optimizer)
     test_df = pd.DataFrame()
-    test_df['sentence'] = val_dataset.sentences
-    test_df['pred'] = test_preds
-    test_df['label'] = test_df['pred'].apply(lambda x: labels[x])
-    test_df.to_csv('./data/test_preds_bert.csv', index=False)
+    test_df["pred"] = test_preds
+    test_df['Label'] = test_df['pred'].apply(lambda x: labels[x])
+    test_df["ID"] = test_df.index
+    test_df.drop(columns=["pred"], inplace=True)
+    test_df.to_csv('./data/test_preds_bert_large_dataset.csv', index=False)
