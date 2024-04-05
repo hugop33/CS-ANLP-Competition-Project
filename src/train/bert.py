@@ -65,18 +65,18 @@ def train(model, train_dataloader, val_dataloader, criterion, num_epochs, *optim
             input_ids, attention_mask, token_type_ids = input_ids.to(DEVICE), attention_mask.to(DEVICE), token_type_ids.to(DEVICE)
             output = model(input_ids, attention_mask, token_type_ids)
             predictions.append(output.argmax(1))
-    torch.save(model.state_dict(), './model_weights/bert_clf_augmented_data.pth')
+    torch.save(model.state_dict(), './model_weights/full_semi_bert_clf_augmented.pth')
     return torch.cat(predictions).cpu().numpy()
 
 
 if __name__=="__main__":
     import pandas as pd
 
-    train_dataset = TrainDataset('./data/augmented.json')
+    train_dataset = TrainDataset('./data/augmented_semi.json')
     # additional_dataset = AdditionalDataset('./data/labelled_newscatcher_dataset.csv')
     # train_dataset.extend(additional_dataset)
     labels = train_dataset.labels
-    train_dataloader = DataLoader(train_dataset, batch_size=8, shuffle=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=True)
     val_dataset = TestDataset('./data/test_shuffle.txt')
     val_dataloader = DataLoader(val_dataset, batch_size=128, shuffle=False)
     model = BertClassifier(freeze_bert=False)
@@ -84,10 +84,10 @@ if __name__=="__main__":
     optimizer = Adam(model.parameters(), lr=1e-3)
     lin_optimizer = Adam(model.fc.parameters(), lr=5e-3)
     bert_optimizer = Adam(model.bert.parameters(), lr=1e-5)
-    test_preds = train(model, train_dataloader, val_dataloader, criterion, 10, lin_optimizer, bert_optimizer)
+    test_preds = train(model, train_dataloader, val_dataloader, criterion, 5, lin_optimizer, bert_optimizer)
     test_df = pd.DataFrame()
     test_df["pred"] = test_preds
     test_df['Label'] = test_df['pred'].apply(lambda x: labels[x])
     test_df["ID"] = test_df.index
     test_df.drop(columns=["pred"], inplace=True)
-    test_df.to_csv('./data/test_preds_bert_augmented_data.csv', index=False)
+    test_df.to_csv('./data/full_semi_bert_augmented_data.csv', index=False)
