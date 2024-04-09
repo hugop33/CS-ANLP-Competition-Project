@@ -85,10 +85,10 @@ if __name__=="__main__":
     val_embeddings = vectorizer.transform(val_dataset.sentences)
     val_embeddings = torch.tensor(val_embeddings.toarray(), dtype=torch.float32)
     val_dataloader = DataLoader(val_embeddings, batch_size=32, shuffle=False)
-    model = Classifier(train_embeddings.shape[1], 256, 12).to(DEVICE)
+    model = Classifier(train_embeddings.shape[1], 2048, 1024, 512, 256, 128, 64, output_dim=len(labels)).to(DEVICE)
     criterion = nn.CrossEntropyLoss()
     optimizer = Adam(model.parameters(), lr=1e-3)
-    test_preds = train(model, train_dataloader, val_dataloader, criterion, 1000, optimizer, print_cp=100)
+    test_preds = train(model, train_dataloader, val_dataloader, criterion, 100, optimizer, print_cp=50)
     test_df = pd.DataFrame()
     test_df["pred"] = test_preds
     test_df['Label'] = test_df['pred'].apply(lambda x: labels[x])
