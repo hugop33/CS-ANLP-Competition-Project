@@ -69,22 +69,34 @@ def train(model, train_dataloader, val_dataset, ref_dataset, criterion, num_epoc
         print('-------------------')
     torch.save(model.state_dict(), './model_weights/sentencebert_augmented_semi.pth')
     # predict on all test data
+    return predictions(model, val_dataset, ref_dataset)
+
+def predictions(model, test_dataset, ref_dataset):
     model.eval()
+    model.to(DEVICE)
     predictions = []
     ref_batches = []
     for i in np.unique(ref_dataset.target):
         ref_batches.append(ref_dataset.get_batchlbl(i))
+    # print(len(ref_batches))
     with torch.no_grad():
-        for input_ids, attention_mask, token_type_ids in tqdm(val_dataset, desc="Predicting on test data"):
-            input_ids, attention_mask, token_type_ids = input_ids.to(DEVICE), attention_mask.to(DEVICE), token_type_ids.to(DEVICE)
+        for input_ids, attention_mask, token_type_ids in tqdm(test_dataset, desc="Predicting on test data"):
+            outputs = []
+            input_ids, attention_mask, token_type_ids = input_ids.unsqueeze(0).to(DEVICE), attention_mask.unsqueeze(0).to(DEVICE), token_type_ids.unsqueeze(0).to(DEVICE)
             for ref in ref_batches:
                 ref_input_ids, ref_attention_mask, ref_token_type_ids, _ = ref
                 ref_input_ids, ref_attention_mask, ref_token_type_ids = ref_input_ids.to(DEVICE), ref_attention_mask.to(DEVICE), ref_token_type_ids.to(DEVICE)
                 batch_test = (torch.cat([input_ids]*ref_input_ids.size(0)), torch.cat([attention_mask]*ref_attention_mask.size(0)), torch.cat([token_type_ids]*ref_token_type_ids.size(0)))
                 batch_ref = (ref_input_ids, ref_attention_mask, ref_token_type_ids)
+                # print(batch_test[0].shape, batch_ref[0].shape)
                 output = model(batch_test, batch_ref)
+                # pooling output
+                output = torch.mean(output, dim=0)
+                outputs.append(output)
+                # print(output.shape)
                 # the predicted label is the index of the reference batch where we found the most similar sentence
-                predictions.append(output.argmax(1))
+            # print(torch.argmax(torch.cat(outputs)).unsqueeze(0))
+            predictions.append(torch.argmax(torch.cat(outputs)).unsqueeze(0))
 
     return torch.cat(predictions).cpu().numpy()
 
@@ -99,13 +111,15 @@ if __name__=="__main__":
     train_dataloader = DataLoader(train_dataset, batch_size=256, shuffle=True)
     val_dataset = TestDataset('./data/test_shuffle.txt')
     val_dataloader = DataLoader(val_dataset, batch_size=128, shuffle=False)
-    ref_dataset = TrainDataset('./data/augmented_semi.json')
+    ref_dataset = TrainDataset('./data/augmented.json')
     model = SiameseBert(freeze_bert=True)
     criterion = nn.BCELoss()
     optimizer = Adam(model.parameters(), lr=1e-3)
     lin_optimizer = Adam(model.fc.parameters(), lr=5e-3)
     bert_optimizer = Adam(model.bert.parameters(), lr=1e-5)
-    test_preds = train(model, train_dataloader, val_dataset, ref_dataset, criterion, 1, lin_optimizer, bert_optimizer)
+    # test_preds = train(model, train_dataloader, val_dataset, ref_dataset, criterion, 1, lin_optimizer, bert_optimizer)
+    model.load_state_dict(torch.load('./model_weights/sentencebert_augmented_semi.pth'))
+    test_preds = predictions(model, val_dataset, ref_dataset)
     test_df = pd.DataFrame()
     test_df["pred"] = test_preds
     test_df['Label'] = test_df['pred'].apply(lambda x: labels[x])

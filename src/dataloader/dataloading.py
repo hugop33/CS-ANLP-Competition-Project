@@ -76,7 +76,7 @@ class SiameseDataset(Dataset):
 
 
 class TestDataset(Dataset):
-    def __init__(self, file):
+    def __init__(self, file, pad_len=128):
         self.file = file
         self.tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
         self.sentences = []
@@ -85,7 +85,7 @@ class TestDataset(Dataset):
                 if l.strip() != '':
                     self.sentences.append(l.strip())
         self.len = len(self.sentences)
-        self.data = self.tokenizer(self.sentences, padding="longest", return_tensors="pt")
+        self.data = self.tokenizer(self.sentences, padding="max_length", max_length=pad_len, return_tensors="pt")
 
 
     def __len__(self):
