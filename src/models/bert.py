@@ -20,11 +20,45 @@ class BertClassifier(nn.Module):
             for param in self.bert.parameters():
                 param.requires_grad = False
         self.fc = nn.Linear(768, num_classes)
+        self.softmax = nn.Softmax(dim=1)
     
     def forward(self, input_ids, attention_mask, token_type_ids):
         output = self.bert(input_ids, attention_mask, token_type_ids)
-        cls_embedding = output[0][:,0,:]
-        return self.fc(cls_embedding)
+        mean_embedding = torch.mean(output[0], dim=1)
+        return self.softmax(self.fc(mean_embedding))
+    
+
+class SiameseBert(nn.Module):
+    def __init__(self, freeze_bert=True):
+        """
+        Binary classification model using Siamese Bert : determines if two sentences are of the same class or not
+        - Takes two input sentences
+        - Passes them through a shared bert model
+        - Computes the difference between the pooled outputs
+        - Passes the difference through a linear layer
+        """
+        super(SiameseBert, self).__init__()
+        self.bert = BertModel.from_pretrained('bert-base-uncased')
+        # freeze bert
+        if freeze_bert:
+            for param in self.bert.parameters():
+                param.requires_grad = False
+        self.fc = nn.Sequential(nn.Linear(3*768, 512),
+                                nn.ReLU(),
+                                nn.Linear(512, 1))
+        self.sigmoid = nn.Sigmoid()
+
+    
+    def forward(self, sentence1, sentence2):
+        input_ids1, attention_mask1, token_type_ids1 = sentence1
+        input_ids2, attention_mask2, token_type_ids2 = sentence2
+        output1 = self.bert(input_ids1, attention_mask1, token_type_ids1)
+        output2 = self.bert(input_ids2, attention_mask2, token_type_ids2)
+        pooled1 = torch.mean(output1[0], dim=1)
+        pooled2 = torch.mean(output2[0], dim=1)
+        diff = torch.abs(pooled1 - pooled2)
+        aggregate = torch.cat([pooled1, pooled2, diff], dim=1)
+        return self.sigmoid(self.fc(aggregate))
 
 
 if __name__=="__main__":
