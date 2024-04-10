@@ -57,17 +57,19 @@ def train(model, train_dataloader, val_dataloader, criterion, num_epochs, *optim
         print(f'Val accuracy: {val_acc:.4f}')
         print('-------------------')
     
-    # predict on all test data
+    torch.save(model.state_dict(), './model_weights/full_semi_bert_clf_augmented.pth')
+    return predictions(model, val_dataloader, train_dataset)
+
+def predictions(model, test_dataset):
     model.eval()
+    model.to(DEVICE)
     predictions = []
     with torch.no_grad():
-        for input_ids, attention_mask, token_type_ids in val_dataloader:
+        for input_ids, attention_mask, token_type_ids in test_dataset:
             input_ids, attention_mask, token_type_ids = input_ids.to(DEVICE), attention_mask.to(DEVICE), token_type_ids.to(DEVICE)
             output = model(input_ids, attention_mask, token_type_ids)
-            predictions.append(output.argmax(1))
-    torch.save(model.state_dict(), './model_weights/full_semi_bert_clf_augmented.pth')
-    return torch.cat(predictions).cpu().numpy()
-
+            predictions.extend(output.argmax(1).cpu().tolist())
+    return predictions
 
 if __name__=="__main__":
     import pandas as pd
@@ -80,14 +82,24 @@ if __name__=="__main__":
     val_dataset = TestDataset('./data/test_shuffle.txt')
     val_dataloader = DataLoader(val_dataset, batch_size=128, shuffle=False)
     model = BertClassifier(freeze_bert=False)
-    criterion = nn.CrossEntropyLoss()
-    optimizer = Adam(model.parameters(), lr=1e-3)
-    lin_optimizer = Adam(model.fc.parameters(), lr=5e-3)
-    bert_optimizer = Adam(model.bert.parameters(), lr=1e-5)
-    test_preds = train(model, train_dataloader, val_dataloader, criterion, 5, lin_optimizer, bert_optimizer)
+    # criterion = nn.CrossEntropyLoss()
+    # optimizer = Adam(model.parameters(), lr=1e-3)
+    # lin_optimizer = Adam(model.fc.parameters(), lr=5e-3)
+    # bert_optimizer = Adam(model.bert.parameters(), lr=1e-5)
+    # test_preds = train(model, train_dataloader, val_dataloader, criterion, 5, lin_optimizer, bert_optimizer)
+    # test_df = pd.DataFrame()
+    # test_df["pred"] = test_preds
+    # test_df['Label'] = test_df['pred'].apply(lambda x: labels[x])
+    # test_df["ID"] = test_df.index
+    # test_df.drop(columns=["pred"], inplace=True)
+    # test_df.to_csv('./data/full_semi_bert_augmented_data.csv', index=False)
+    model.load_state_dict(torch.load('./model_weights/semi_bert_clf_augmented.pth'))
+    test_preds = predictions(model, val_dataloader)
     test_df = pd.DataFrame()
     test_df["pred"] = test_preds
     test_df['Label'] = test_df['pred'].apply(lambda x: labels[x])
     test_df["ID"] = test_df.index
     test_df.drop(columns=["pred"], inplace=True)
-    test_df.to_csv('./data/full_semi_bert_augmented_data.csv', index=False)
+    partial_df = pd.read_csv('./data/partial_naive.csv')
+    partial_df[partial_df['Label'] == 'Others'] = test_df
+    partial_df.to_csv('./data/semi_naive_augmented_bert.csv', index=False)
