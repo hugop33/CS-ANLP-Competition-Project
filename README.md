@@ -21,3 +21,6 @@ The train dataset consists of 12 categories of sentences. Each category has 3 se
 
 ## Approach
 We tried several approaches to classify the sentences into one of the 12 categories, as detailed in [this report](https://www.overleaf.com/read/jknfqbbrgymj#f7ad1f).
+
+## Run
+To run our best solution, which is zero-shot classification using deberta-large, run `python src/train/deberta_large.py`. Be sure to have a folder named `data` at the root of this project contaning the test set. The script will create a file `target1st.csv` in the `data` folder with the predictions of the model.
